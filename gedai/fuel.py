@@ -2,13 +2,8 @@
 Functions to calculate fuel use.
 """
 
-__author__ = "Liam Megill"
-__email__ = "liam.megill@dlr.de"
-__license__ = "Apache License 2.0"
-
 # imports
 import openap
-# from openap.addon import bada3  # waiting for PR #59 at OpenAP
 import pandas as pd
 import numpy as np
 
@@ -19,25 +14,76 @@ from .core import assign_to_flight
 def compute_fuel_flow_iterative(
     df: pd.DataFrame,
     fuelflow: openap.FuelFlow,
-    starting_mass: float
+    m_start: float,
+    ac: dict,
+    retry_with_mtow: bool = True,
 ) -> pd.DataFrame:
-    """Calculate fuel flow.
+    """
+    Calculate fuel flow using a step-by-step iterative approach.
 
     Args:
         df (pd.DataFrame): Flight data.
         fuelflow (openap.FuelFlow): Instance of the OpenAP FuelFlow class.
-        starting_mass (float): Initial mass of the aircraft [kg]
+        m_start (float): Initial mass of the aircraft [kg] or fraction of MTOW.
+        ac (dict): Aircraft configuration.
+        retry_with_mtow (bool, optional): Retry with MTOW if final mass
+            is below OEW. Defaults to True.
 
     Returns:
-        pd.DataFrame: DataFrame modified in place with new columns "fuel_flow"
-            [kg/s] and "fuel" [kg].
-    """
-    # pre-conditions
-    # test starting_mass > 0
-    mass_current = starting_mass
-    dt = df.timestamp.diff().dt.total_seconds().bfill().values
+        pd.DataFrame: DataFrame with columns "fuelflow" [kg/s],
+            "fuel" [kg], and "dt" [s].
 
-    # map phases to fuel flow methods
+    Raises:
+        ValueError: If m_start is invalid or final mass is below OEW.
+    """
+
+    mtow = ac["mtow"]
+    oew = ac["oew"]
+
+    # interpret m_start
+    if m_start > mtow:
+        raise ValueError("Initial mass may not be larger than MTOW.")
+    if m_start <= 0:
+        raise ValueError("Initial mass must be positive.")
+    if m_start <= 1:
+        m_start = m_start * mtow
+
+    # first attempt
+    ff, fuel, mass = _fuel_flow_iterative_pass(df, fuelflow, m_start)
+
+    # check if final mass is below OEW
+    if mass[-1] < oew:
+        if retry_with_mtow:
+            ff, fuel, mass = _fuel_flow_iterative_pass(df, fuelflow, mtow)
+            if mass[-1] < oew:
+                raise ValueError(
+                    f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg "
+                    "even after retrying with MTOW."
+                )
+        else:
+            raise ValueError(
+                f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg."
+            )
+
+    dt = df.timestamp.diff().dt.total_seconds().bfill()
+    return df.assign(fuelflow=ff, fuel=fuel, dt=dt)
+
+
+def _fuel_flow_iterative_pass(
+    df: pd.DataFrame, fuelflow: openap.FuelFlow, m_start: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Iterative fuel flow calculation, updating mass step by step.
+
+    Args:
+        df (pd.DataFrame): Flight data.
+        fuelflow (openap.FuelFlow): OpenAP fuel flow model.
+        m_start (float): Initial mass [kg]
+
+    Returns:
+        tuple: fuel flow [kg/s], fuel used [kg], mass profile [kg]
+    """
+    dt = df.timestamp.diff().dt.total_seconds().bfill().values
+    mass_current = m_start
     phase_map = {
         "GROUND": None,
         "CLIMB": fuelflow.nominal,
@@ -47,12 +93,13 @@ def compute_fuel_flow_iterative(
         "NA": None,
     }
 
-    # calculate fuel flow and fuel per timestep
     ff_lst = []
     fuel_lst = []
+    mass_lst = []
+
     for row, step_dt in zip(df.itertuples(index=False), dt):
         ff_method = phase_map.get(row.phase)
-        if row.dt == 0 or not ff_method:
+        if step_dt == 0 or not ff_method:
             ff = 0.0
         else:
             ff = ff_method(
@@ -61,27 +108,30 @@ def compute_fuel_flow_iterative(
                 alt=row.altitude,
                 vs=row.vertical_rate,
             )[0][0]
-        # TODO: log any fuel flow issues (e.g. negative values)
-        # protect against NaNs
+
         ff = np.nan_to_num(ff, nan=0.0, posinf=0.0, neginf=0.0)
         fuel = ff * step_dt
         mass_current -= fuel
+
         ff_lst.append(ff)
         fuel_lst.append(fuel)
+        mass_lst.append(mass_current)
 
-    return df.assign(fuelflow=ff_lst, fuel=fuel_lst, dt=dt)
+    return np.array(ff_lst), np.array(fuel_lst), np.array(mass_lst)
 
 
 @assign_to_flight
 def compute_fuel_flow_vectorised(
     df: pd.DataFrame,
     fuelflow: openap.FuelFlow,
-    starting_mass: float
-) -> tuple[np.ndarray, np.ndarray]:
+    m_start: float,
+    ac: dict,
+    retry_with_mtow: bool = True,
+) -> pd.DataFrame:
     """
     Calculate fuel flow using a vectorised approach. This method uses two
     passes: the first pass calculates the fuel flow assuming the mass is
-    constant (starting_mass). The mass is then corrected using this fuel flow.
+    constant (m_start). The mass is then corrected using this fuel flow.
     The fuel flow and fuel use is calculated in a second pass with the
     corrected mass. Note that this is an approximation, but it is also
     around 100 times faster.
@@ -89,13 +139,70 @@ def compute_fuel_flow_vectorised(
     Args:
         df (pd.DataFrame): Flight data.
         fuelflow (openap.FuelFlow): Instance of the OpenAP FuelFlow class.
-        starting_mass (float): Initial mass of the aircraft [kg]
+        m_start (float): Initial mass of the aircraft [kg] or fraction of MTOW.
+        ac (dict): Aircraft configuration dictionary.
+        retry_with_mtow (bool, optional): Retry with MTOW if final mass is
+            below operational empty weight. Defaults to True.
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: Fuel flow [kg/s] and fuel [kg]
+        pd.DataFrame: DataFrame modified in place with new columns "fuelflow"
+            [kg/s], "fuel" [kg] and "dt" [s]. Note that these columns will
+            be obselete if resampling or filtering is done!
+
+    Raises:
+        ValueError: If m_start is negative or larger than MTOW, or if the final
+            aircraft massis below OEW even after retry.
     """
 
-    # map phases to fuel flow methods
+    mtow = ac["mtow"]
+    oew = ac["oew"]
+
+    # interpret m_start
+    if m_start > mtow:
+        raise ValueError("Initial mass may not be larger than MTOW.")
+    if m_start <= 0:
+        raise ValueError("Initial mass must be positive.")
+    if m_start <= 1:
+        m_start = m_start * mtow
+
+    # calculate fuel flow, fuel and final mass
+    ff_2, fuel, mass = _fuel_flow_passes(df, fuelflow, m_start)
+
+    # check if final mass is below OEW
+    if mass[-1] < oew:
+        if retry_with_mtow:
+            ff_2, fuel, mass = _fuel_flow_passes(df, fuelflow, mtow)
+            if mass[-1] < oew:
+                raise ValueError(
+                    f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg "
+                    "even after retrying with MTOW."
+                )
+        else:
+            raise ValueError(
+                f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg."
+            )
+
+    dt = df.timestamp.diff().dt.total_seconds().bfill()
+    return df.assign(fuelflow=ff_2, fuel=fuel, dt=dt)
+
+
+def _fuel_flow_passes(
+    df: pd.DataFrame, fuelflow: openap.FuelFlow, m_init: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Perform two-pass fuel flow calculation with initial mass guess.
+
+    Args:
+        df (pd.DataFrame): Flight data.
+        fuelflow (openap.FuelFlow): OpenAP fuel flow model.
+        m_init (float): Initial aircraft mass [kg].
+
+    Returns:
+        tuple: fuel flow [kg/s], fuel used [kg], final mass profile [kg]
+    """
+    n = len(df)
+    mass_0 = np.full(n, m_init)
+    dt = df.timestamp.diff().dt.total_seconds().bfill()
+
     phase_map = {
         "GROUND": None,
         "CLIMB": fuelflow.nominal,
@@ -105,24 +212,16 @@ def compute_fuel_flow_vectorised(
         "NA": None,
     }
 
-    # first pass: using reference mass
-    n = len(df)
-    mass_0 = np.full(n, starting_mass)
-    dt = df.timestamp.diff().dt.total_seconds().bfill()
     ff_1 = _fuel_flow_pass(df, phase_map, mass_0)
     mass = mass_0 - np.cumsum(ff_1 * dt)
-
-    # second pass with corrected mass
     ff_2 = _fuel_flow_pass(df, phase_map, mass)
     fuel = ff_2 * dt
 
-    return df.assign(fuelflow=ff_2, fuel=fuel, dt=dt)
+    return ff_2, fuel, mass
 
 
 def _fuel_flow_pass(
-    df: pd.DataFrame,
-    phase_map: dict,
-    mass: np.ndarray
+    df: pd.DataFrame, phase_map: dict, mass: np.ndarray
 ) -> np.ndarray:
     """Do a fuel flow calculation pass depending on the phase.
 
@@ -148,52 +247,3 @@ def _fuel_flow_pass(
             vs=df["vertical_rate"].values[p_idx],
         ).flatten()
     return np.nan_to_num(ff)
-
-
-# Waiting for PR #59 at OpenAP
-
-# def calc_starting_mass(method: str, **kwargs) -> float:
-#     """Calculate aircraft starting mass.
-
-#     Args:
-#         method (str): Method by which to calculate starting mass. Currently
-#             implemented is 'BADA3'.
-
-#     Raises:
-#         ValueError: Missing kwargs for each method.
-#         ValueError: Invalid of unsupported method.
-
-#     Returns:
-#         float: Starting aircraft mass [kg]
-#     """
-
-#     if method == "BADA3":
-#         req_kwargs = ["ac_type", "bada_version", "bada_path"]
-#         missing = [kw for kw in req_kwargs if kw not in kwargs]
-#         if missing:
-#             raise ValueError(f"Missing kwargs: {missing}")
-#         return _calc_starting_mass_bada3(**kwargs)
-#     raise ValueError("Invalid or unsupported method. Supported are: ['BADA3']")
-
-
-# def _calc_starting_mass_bada3(
-#     ac_type: str, bada_version: str, bada_path: str = None
-# ) -> float:
-#     """Calculate aircraft starting mass using BADA3.
-
-#     Args:
-#         ac_type (str): ICAO aircraft type designator (e.g. G280)
-#         bada_version (str): Identifier of BADA3 version. Required if
-#             `bada_path=None`, else has no functionality but must be provided.
-#         bada_path (str, optional): Path to BADA3 models. If None, data is taken
-#             from `pyBADA/aircraft/BADA3/{badaVersion}/`.
-
-#     Returns:
-#         float: Starting aircraft mass [kg]
-#     """
-#     # TODO: maybe there's a better way to estimate initial mass
-#     # maybe we should ensure that MREF - total fuel use doesn't drop below OEW
-#     acmod = bada3.load_bada3(ac_type, bada_version, bada_path)
-#     starting_mass = acmod.MTOW * 0.9
-
-#     return starting_mass
