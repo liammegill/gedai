@@ -26,7 +26,7 @@ class TestFetchRawData:
             "trace": [[1, 2, 3]],
             "icao": "abc123",
             "r": "N123AB",
-            "t": "XYZ"
+            "t": "XYZ",
         }
 
         with patch(
@@ -34,12 +34,14 @@ class TestFetchRawData:
         ) as mock_get:
             base_url = "https://example.com/"
             icao = "abc123"
-            data, metadata = gedai.fetch_raw_data("adsb_exchange", base_url, icao)
+            data, metadata = gedai.fetch_raw_data(
+                "adsb_exchange", base_url, icao
+            )
 
             assert data is not None
             assert metadata == {"icao": "abc123", "r": "N123AB", "t": "XYZ"}
             mock_get.assert_called_once_with(
-                "https://example.com/trace_full_abc123.json", timeout=10
+                "https://example.com/23/trace_full_abc123.json", timeout=10
             )
 
     def test_request_fails_returns_none(self):
@@ -68,5 +70,7 @@ class TestFetchRawData:
 
     def test_unsupported_source_raises_error(self):
         """Test that unsupported sources raise a ValueError."""
-        with pytest.raises(ValueError, match="Unsupported ADS-B source: opensky"):
+        with pytest.raises(
+            ValueError, match="Unsupported ADS-B source: opensky"
+        ):
             gedai.fetch_raw_data("opensky", "https://example.com/", "jkl000")

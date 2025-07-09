@@ -19,13 +19,16 @@ def fetch_raw_data(source: str, base_url: str, icao: str):
         icao (str): ICAO identifier of the aircraft.
 
     Returns:
-        tuple[dict, dict]: A tuple containing the full data and extracted 
+        tuple[dict, dict]: A tuple containing the full data and extracted
             metadata.
 
     Raises:
         ValueError: If the source is unknown or unsupported.
     """
     if source == "adsb_exchange":
+        base_url = f"{base_url}{icao[-2:]}/"
+        return _fetch_adsb_exchange(base_url, icao)
+    if source == "bjets":
         return _fetch_adsb_exchange(base_url, icao)
     raise ValueError(f"Unsupported ADS-B source: {source}")
 
