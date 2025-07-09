@@ -4,21 +4,21 @@ name: Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 jobs:
   build:
     name: Install and test on (${{ matrix.os }}, Miniforge)
-    runs-on: ${{ matrix.os }}$
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.11.5"]
     defaults:
       run:
-        shell: base -el {0}
+        shell: bash -el {0}
     steps:
     - uses: actions/checkout@v4
     - name: Setup conda environment
@@ -35,5 +35,5 @@ jobs:
         conda list
     - name: Test with pytest
       run: |
-       cd tests/
-       pytest
+        cd tests/
+        pytest
