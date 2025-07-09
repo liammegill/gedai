@@ -1,0 +1,39 @@
+# This workflow sets up conda, creates a virtual environment and runs tests with pytest
+
+name: Install and run tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Install and test on (${{ matrix.os }}, Miniforge)
+    runs-on: ${{ matrix.os }}$
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.11.5"]
+    defaults:
+      run:
+        shell: base -el {0}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup conda environment
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: false
+        python-version: ${{ matrix.python-version }}
+        environment-file: environment.yaml
+        activate-environment: gedai
+        miniforge-version: latest
+    - name: Conda info
+      run: |
+        conda info
+        conda list
+    - name: Test with pytest
+      run: |
+       cd tests/
+       pytest
