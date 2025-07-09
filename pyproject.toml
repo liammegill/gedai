@@ -11,7 +11,7 @@ license = { file = "LICENSE" }
 authors = [
     { name = "Liam Megill", email = "liam.megill@dlr.de" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "cartopy",
     "matplotlib",
