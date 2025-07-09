@@ -9,17 +9,15 @@ __license__ = "Apache License 2.0"
 
 # imports
 from datetime import timedelta
-from typing import Iterator
+from typing import Iterator, overload, Union
 import pandas as pd
 import openap
 from traffic.core import Flight
 from traffic.core.iterator import flight_iterator
 
-from ..core import assign_to_flight
-
 
 @flight_iterator
-def split_by_leg(flight: Flight, source: str="custom") -> Iterator["Flight"]:
+def split_by_leg(flight: Flight, source: str = "custom") -> Iterator["Flight"]:
     """Split Flight by the leg number using the flight_iterator decorator.
 
     Args:
@@ -60,37 +58,50 @@ def leg_split_condition(f1: Flight, f2: Flight) -> bool:
         raise ValueError("Missing 'leg' column in Flight data.") from e
 
 
-@assign_to_flight
-def identify_legs(df: pd.DataFrame, source: str) -> pd.DataFrame:
+@overload
+def identify_legs(obj: pd.DataFrame, soure: str) -> pd.DataFrame: ...
+
+
+@overload
+def identify_legs(obj: Flight, source: str) -> Flight: ...
+
+
+def identify_legs(
+    obj: Union[pd.DataFrame, Flight], source: str
+) -> Union[pd.DataFrame, Flight]:
     """
-    Applies leg identification to the input DataFrame, modifying it in place.
-    The function adds a new column "leg" with integers denoting the
-    corresponding leg.
+    Applies leg identification to the input DataFrame or Flight object,
+    modifying it in place. The function adds a new column "leg" with integers
+    denoting the corresponding leg.
 
     Args:
-        df (pd.DataFrame): DataFrame containing ADS-B data.
+        obj (Union[pd.DataFrame, Flight]): ADS-B data
         source (str): ADS-B source (e.g., "adsb_exchange").
 
     Returns:
-        pd.DataFrame: DataFrame with an added "leg" column identifying segments.
+        Union[pd.DataFrame, Flight]: Same type as input, with added 'leg' column.
 
     Raises:
         ValueError: If unknown source is provided.
     """
+    is_flight = hasattr(obj, "data")
+    df = obj.data.copy() if is_flight else obj.copy()
 
     if source == "adsb_exchange":
         # use ADS-B Exchange's internal leg identification
-        return _identify_legs_adsbexchange(df)
+        df = _identify_legs_adsbexchange(df)
 
-    if source == "custom":
+    elif source == "custom":
         # use custom requirements
         df = _identify_legs_custom(df)
         df = _filter_short_legs(df)  # filter out short legs
-        return df
 
-    raise ValueError(
-        f"No leg detection logic implemented for source: {source}"
-    )
+    else:
+        raise ValueError(
+            f"No leg detection logic implemented for source: {source}"
+        )
+
+    return obj.assign(leg=df["leg"])
 
 
 def _identify_legs_adsbexchange(df: pd.DataFrame) -> pd.DataFrame:
@@ -137,12 +148,13 @@ def _identify_legs_custom(df: pd.DataFrame) -> pd.DataFrame:
     cond_1 = (prev_phase != "GROUND") & (df["phase"] == "GROUND")
 
     # condition 2: 0 < alt < 10 kft and > 5 min
-    low_alt = ((df["altitude"] > 0) & (df["altitude"] < 10000)) | \
-              ((prev_alt > 0) & (prev_alt < 10000))
+    low_alt1 = (df["altitude"] > 0) & (df["altitude"] < 10000)
+    low_alt2 = (prev_alt > 0) & (prev_alt < 10000)
+    low_alt = low_alt1 | low_alt2
     cond_2 = low_alt & (delta_t > timedelta(minutes=5))
 
     # condition 3: alt >= 10 kft and > 10 h
-    high_alt = (df["altitude"] >= 10000) | (prev_alt >= 10000)#
+    high_alt = (df["altitude"] >= 10000) | (prev_alt >= 10000)
     cond_3 = high_alt & (delta_t > timedelta(hours=10))
 
     # combine conditions
@@ -156,9 +168,7 @@ def _identify_legs_custom(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _filter_short_legs(
-    df: pd.DataFrame,
-    min_duration: int=5,
-    min_dist: float=3.0
+    df: pd.DataFrame, min_duration: int = 5, min_dist: float = 3.0
 ) -> pd.DataFrame:
     """Apply simple filter to remove short legs.
 
@@ -184,8 +194,10 @@ def _filter_short_legs(
 
         # check leg distance
         dist = openap.aero.distance(
-            leg_df["latitude"].iloc[0], leg_df["longitude"].iloc[0],
-            leg_df["latitude"].iloc[-1], leg_df["longitude"].iloc[-1],
+            leg_df["latitude"].iloc[0],
+            leg_df["longitude"].iloc[0],
+            leg_df["latitude"].iloc[-1],
+            leg_df["longitude"].iloc[-1],
         )
         if dist < min_dist:
             continue

@@ -6,11 +6,11 @@ __author__ = "Liam Megill"
 __email__ = "liam.megill@dlr.de"
 __license__ = "Apache License 2.0"
 
-import openap
+from typing import overload, Union
 import numpy as np
 import pandas as pd
-
-from .core import assign_to_flight
+import openap
+from traffic.core import Flight
 
 
 # emission indices
@@ -18,26 +18,37 @@ EI_CO2 = 3.16  # Lee et al., 2010, Table 1, doi:10.1016/j.atmosenv.2009.06.005
 EI_H2O = 1.24  # Lee et al., 2010, Table 1, doi:10.1016/j.atmosenv.2009.06.005
 
 
-@assign_to_flight
+@overload
 def calc_emissions(
-    df: pd.DataFrame, ac: dict, eng: str = None, **kwargs
-) -> pd.DataFrame:
+    obj: pd.DataFrame, ac: dict, eng: str = None, **kwargs
+) -> pd.DataFrame: ...
+
+
+@overload
+def calc_emissions(
+    obj: Flight, ac: dict, eng: str = None, **kwargs
+) -> Flight: ...
+
+
+def calc_emissions(
+    obj: Union[pd.DataFrame, Flight], ac: dict, eng: str = None, **kwargs
+) -> Union[pd.DataFrame, Flight]:
     """
     Calculate emission flows [kg/s] of CO2, H2O and NOx.
 
     Args:
-        df (pd.DataFrame): Flight data.
+        obj (Union[pd.DataFrame, Flight]): Flight data
         ac (dict): OpenAP aircraft dictionary
-        eng (str, optional): Engine identifier, (e.g. "AE3007A1E").
-            Defaults to None, at which point the default engine is used.
-
-    Useful kwargs:
-        nox_method (str): NOx calculation method, one of "dlr" or "boeing".
+        eng (str, optional): Engine identifier, e.g. "AE3007A1E". If None, use
+            default engine.
+        **kwargs: Additional parameters for NOx calculation, e.g. `nox_method`.
 
     Returns:
-        pd.DataFrame: Flight data with new columns "co2flow", "h2oflow" and
-            "noxflow".
+        Union[pd.DataFrame, Flight]: Input with new columns "co2flow",
+        "h2oflow", "noxflow"
     """
+    is_flight = hasattr(obj, "data")
+    df = obj.data.copy() if is_flight else obj.copy()
 
     # get aircraft and engine properties
     n_eng = float(ac["engine"]["number"])  # ensure division works
@@ -51,7 +62,7 @@ def calc_emissions(
         df["fuelflow"], df["groundspeed"], df["altitude"], eng, n_eng, **kwargs
     )
 
-    return df.assign(co2flow=co2flow, h2oflow=h2oflow, noxflow=noxflow)
+    return obj.assign(co2flow=co2flow, h2oflow=h2oflow, noxflow=noxflow)
 
 
 def calc_co2(ff):

@@ -8,7 +8,7 @@ __license__ = "Apache License 2.0"
 
 
 # imports
-from typing import Callable
+from typing import Callable, overload, Union
 from functools import wraps
 import pandas as pd
 import openap
@@ -47,6 +47,7 @@ def assign_to_flight(
 
         new_flight = calculate_distance(flight)
     """
+
     @wraps(func)
     def wrapper(flight: Flight, *args, **kwargs) -> Flight:
         df = flight.data.copy()
@@ -62,26 +63,44 @@ def assign_to_flight(
     return wrapper
 
 
-@assign_to_flight
-def calculate_distance(df: pd.DataFrame):
-    """Add distance column to a DataFrame.
+@overload
+def calculate_distance(obj: pd.DataFrame) -> pd.DataFrame: ...
+
+
+@overload
+def calculate_distance(obj: Flight) -> Flight: ...
+
+
+def calculate_distance(
+    obj: Union[pd.DataFrame, Flight]
+) -> Union[pd.DataFrame, Flight]:
+    """Add distance column to a DataFrame of Flight.
 
     Args:
-        df (pd.DataFrame): DataFrame.
+        obj (Union[pd.DataFrame, Flight]): Flight data
 
     Returns:
-        pd.DataFrame: DataFrame with new column "distance" [km].
+        Union[pd.DataFrame, Flight]: Object with added "distance" column [km]
     """
+    is_flight = hasattr(obj, "data")
+    df = obj.data.copy() if is_flight else obj.copy()
+
     # pre-conditions
     req_cols = ["timestamp", "latitude", "longitude", "altitude"]
     missing = [col for col in req_cols if col not in df.columns]
     if missing:
         raise ValueError(f"Missing columns in DataFrame: {missing}")
 
-    df["distance"] = openap.aero.distance(
-        df["latitude"].shift(1), df["longitude"].shift(1),
-        df["latitude"], df["longitude"], df["altitude"] * openap.aero.ft
-    ) / 1e3  # km
+    df["distance"] = (
+        openap.aero.distance(
+            df["latitude"].shift(1),
+            df["longitude"].shift(1),
+            df["latitude"],
+            df["longitude"],
+            df["altitude"] * openap.aero.ft,
+        )
+        / 1e3
+    )  # km
     df["distance"] = df["distance"].fillna(0.0)
 
-    return df
+    return obj.assign(distance=df["distance"])
