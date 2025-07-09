@@ -34,15 +34,15 @@ def dummy_ff():
     """Dummy fuel flow class."""
 
     class _DummyFuelFlow:
-        def nominal(self, mass):
+        def nominal(self, mass, tas, alt, vs):
             """Nominal fuel flow."""
             return np.array([[0.5]]) * np.ones_like(mass).reshape(-1, 1)
 
-        def idle(self, mass):
+        def idle(self, mass, tas, alt, vs):
             """Idle fuel flow."""
             return np.array([[0.2]]) * np.ones_like(mass).reshape(-1, 1)
 
-        def enroute(self, mass):
+        def enroute(self, mass, tas, alt, vs):
             """Enroute fuel flow."""
             return np.array([[0.3]]) * np.ones_like(mass).reshape(-1, 1)
 
