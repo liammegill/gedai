@@ -1,0 +1,17 @@
+name: gedai
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.9
+  - cartopy
+  - matplotlib
+  - netcdf4
+  - numpy
+  - pandas
+  - xarray
+  - traffic
+  - pytest
+  - pip
+  - pip:
+      - -e .
+      - git+https://github.com/junzis/openap.git

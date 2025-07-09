@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gedai"
+version = "0.1.0"
+description = "Generating Emission Datasets from Aviation Inventories"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Liam Megill", email = "liam.megill@dlr.de" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "cartopy",
+    "matplotlib",
+    "netCDF4",
+    "numpy",
+    "pandas",
+    "xarray",
+    "traffic",
+    "pytest",
+    # openap is currently installed from GitHub via pip in environment.yml
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "mypy",
+    "ruff",
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gedai*"]

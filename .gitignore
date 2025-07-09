@@ -1,5 +1,12 @@
-# ignore cached files
+# ignore cache, environment and build files
+*.pyc
 __pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.env
+.venv
 
 # ignore user settings
 .vscode/
