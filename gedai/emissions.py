@@ -114,6 +114,11 @@ def calc_nox(
     Returns:
         float | np.ndarray: NOx emissions [kg/s]
     """
+    # preconditions
+    if not isinstance(n_eng, (int, float)) or n_eng <= 0:
+        raise ValueError("n_eng must be a positive number.")
+    if np.any(np.asarray(ff) < 0):
+        raise ValueError("Fuel flow must be non-negative.")
 
     # get engine information
     engine = openap.prop.engine(eng)
@@ -168,6 +173,10 @@ def _dlr_method(
     omega = 1e-3 * np.exp(-0.0001426 * (alt - 12900.0))
     h = -19.0 * (omega - 0.00634)
     einox = einox_ref * delta**0.4 * theta**3 * np.exp(h)
+
+    # post-conditions
+    if np.any(np.asarray(einox) < 0):
+        raise ValueError("Negative EINOx value detected.")
 
     return einox * 1e-3  # convert to kg/kg
 
@@ -236,5 +245,9 @@ def _boeing_method(
     omega = (0.62197058 * phi * p_v) / (p_amb - phi * p_v)
     h = -19.0 * (omega - 0.00634)
     einox = einox_ref * np.sqrt(delta**1.02 / theta**3.3) * np.exp(h)
+
+    # post-conditions
+    if np.any(np.asarray(einox) < 0):
+        raise ValueError("Negative EINOx value detected.")
 
     return einox * 1e-3  # convert to kg/kg
