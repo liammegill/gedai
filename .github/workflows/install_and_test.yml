@@ -1,6 +1,6 @@
 # This workflow sets up conda, creates a virtual environment and runs tests with pytest
 
-name: Install and run tests
+name: Tests
 
 on:
   push:
