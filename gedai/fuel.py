@@ -3,23 +3,49 @@ Functions to calculate fuel use.
 """
 
 # imports
+from typing import Union, overload
+
 import openap
 import pandas as pd
 import numpy as np
 
-from .core import assign_to_flight
+
+@overload
+def compute_fuel_flow(
+    obj: pd.DataFrame,
+    fuelflow,
+    m_start: float,
+    ac: dict,
+    retry_with_mtow: bool = True,
+    vectorised: bool = True,
+) -> pd.DataFrame: ...
 
 
-@assign_to_flight
-def compute_fuel_flow_iterative(
-    df: pd.DataFrame,
+@overload
+def compute_fuel_flow(
+    obj: "Flight",
+    fuelflow,
+    m_start: float,
+    ac: dict,
+    retry_with_mtow: bool = True,
+    vectorised: bool = True,
+) -> "Flight": ...
+
+
+def compute_fuel_flow(
+    obj: Union[pd.DataFrame, "Flight"],
     fuelflow: openap.FuelFlow,
     m_start: float,
     ac: dict,
     retry_with_mtow: bool = True,
-) -> pd.DataFrame:
+    vectorised: bool = True,
+) -> Union[pd.DataFrame, "Flight"]:
     """
-    Calculate fuel flow using a step-by-step iterative approach.
+    Calculate fuel flow based on phase, mass, and aircraft config.
+
+    Accepts either a pandas DataFrame or a Flight object. If given a Flight,
+    it returns a new Flight with added fuel-related columns. If given a
+    DataFrame, it returns a modified copy.
 
     Args:
         df (pd.DataFrame): Flight data.
@@ -28,14 +54,18 @@ def compute_fuel_flow_iterative(
         ac (dict): Aircraft configuration.
         retry_with_mtow (bool, optional): Retry with MTOW if final mass
             is below OEW. Defaults to True.
+        vectorised (bool, optional): Use a vectorised method (approximation,
+            but up to 100 times faster). Defaults to True.
 
     Returns:
-        pd.DataFrame: DataFrame with columns "fuelflow" [kg/s],
+        Union[pd.DataFrame, Flight]: DataFrame with columns "fuelflow" [kg/s],
             "fuel" [kg], and "dt" [s].
 
     Raises:
         ValueError: If m_start is invalid or final mass is below OEW.
     """
+    is_flight = hasattr(obj, "data")  # check whether it is a flight instance
+    df = obj.data.copy() if is_flight else obj.copy()
 
     mtow = ac["mtow"]
     oew = ac["oew"]
@@ -48,13 +78,16 @@ def compute_fuel_flow_iterative(
     if m_start <= 1:
         m_start = m_start * mtow
 
-    # first attempt
-    ff, fuel, mass = _fuel_flow_iterative_pass(df, fuelflow, m_start)
+    # select function to run
+    ff_func = _fuel_flow_vectorised if vectorised else _fuel_flow_iterative
+
+    # calculate fuel flow, fuel and final mass
+    ff, fuel, mass = ff_func(df, fuelflow, m_start)
 
     # check if final mass is below OEW
     if mass[-1] < oew:
         if retry_with_mtow:
-            ff, fuel, mass = _fuel_flow_iterative_pass(df, fuelflow, mtow)
+            ff, fuel, mass = ff_func(df, fuelflow, mtow)
             if mass[-1] < oew:
                 raise ValueError(
                     f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg "
@@ -66,10 +99,10 @@ def compute_fuel_flow_iterative(
             )
 
     dt = df.timestamp.diff().dt.total_seconds().bfill()
-    return df.assign(fuelflow=ff, fuel=fuel, dt=dt)
+    return obj.assign(fuelflow=ff, fuel=fuel, dt=dt)
 
 
-def _fuel_flow_iterative_pass(
+def _fuel_flow_iterative(
     df: pd.DataFrame, fuelflow: openap.FuelFlow, m_start: float
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Iterative fuel flow calculation, updating mass step by step.
@@ -120,73 +153,7 @@ def _fuel_flow_iterative_pass(
     return np.array(ff_lst), np.array(fuel_lst), np.array(mass_lst)
 
 
-@assign_to_flight
-def compute_fuel_flow_vectorised(
-    df: pd.DataFrame,
-    fuelflow: openap.FuelFlow,
-    m_start: float,
-    ac: dict,
-    retry_with_mtow: bool = True,
-) -> pd.DataFrame:
-    """
-    Calculate fuel flow using a vectorised approach. This method uses two
-    passes: the first pass calculates the fuel flow assuming the mass is
-    constant (m_start). The mass is then corrected using this fuel flow.
-    The fuel flow and fuel use is calculated in a second pass with the
-    corrected mass. Note that this is an approximation, but it is also
-    around 100 times faster.
-
-    Args:
-        df (pd.DataFrame): Flight data.
-        fuelflow (openap.FuelFlow): Instance of the OpenAP FuelFlow class.
-        m_start (float): Initial mass of the aircraft [kg] or fraction of MTOW.
-        ac (dict): Aircraft configuration dictionary.
-        retry_with_mtow (bool, optional): Retry with MTOW if final mass is
-            below operational empty weight. Defaults to True.
-
-    Returns:
-        pd.DataFrame: DataFrame modified in place with new columns "fuelflow"
-            [kg/s], "fuel" [kg] and "dt" [s]. Note that these columns will
-            be obselete if resampling or filtering is done!
-
-    Raises:
-        ValueError: If m_start is negative or larger than MTOW, or if the final
-            aircraft massis below OEW even after retry.
-    """
-
-    mtow = ac["mtow"]
-    oew = ac["oew"]
-
-    # interpret m_start
-    if m_start > mtow:
-        raise ValueError("Initial mass may not be larger than MTOW.")
-    if m_start <= 0:
-        raise ValueError("Initial mass must be positive.")
-    if m_start <= 1:
-        m_start = m_start * mtow
-
-    # calculate fuel flow, fuel and final mass
-    ff_2, fuel, mass = _fuel_flow_passes(df, fuelflow, m_start)
-
-    # check if final mass is below OEW
-    if mass[-1] < oew:
-        if retry_with_mtow:
-            ff_2, fuel, mass = _fuel_flow_passes(df, fuelflow, mtow)
-            if mass[-1] < oew:
-                raise ValueError(
-                    f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg "
-                    "even after retrying with MTOW."
-                )
-        else:
-            raise ValueError(
-                f"Final mass {mass[-1]:.1f} kg is below OEW {oew:.1f} kg."
-            )
-
-    dt = df.timestamp.diff().dt.total_seconds().bfill()
-    return df.assign(fuelflow=ff_2, fuel=fuel, dt=dt)
-
-
-def _fuel_flow_passes(
+def _fuel_flow_vectorised(
     df: pd.DataFrame, fuelflow: openap.FuelFlow, m_init: float
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Perform two-pass fuel flow calculation with initial mass guess.
@@ -212,15 +179,15 @@ def _fuel_flow_passes(
         "NA": None,
     }
 
-    ff_1 = _fuel_flow_pass(df, phase_map, mass_0)
+    ff_1 = _fuel_flow_vectorised_pass(df, phase_map, mass_0)
     mass = mass_0 - np.cumsum(ff_1 * dt)
-    ff_2 = _fuel_flow_pass(df, phase_map, mass)
+    ff_2 = _fuel_flow_vectorised_pass(df, phase_map, mass)
     fuel = ff_2 * dt
 
-    return ff_2, fuel, mass
+    return np.array(ff_2), np.array(fuel), np.array(mass)
 
 
-def _fuel_flow_pass(
+def _fuel_flow_vectorised_pass(
     df: pd.DataFrame, phase_map: dict, mass: np.ndarray
 ) -> np.ndarray:
     """Do a fuel flow calculation pass depending on the phase.
