@@ -1,0 +1,49 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - docs
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: false
+          activate-environment: gedai
+          environment-file: environment.yaml
+          miniforge-version: latest
+
+      - name: Verify environment
+        run: |
+          conda info
+          conda list
+
+      - name: Install Sphinx and doc dependencies
+        run: |
+          conda activate gedai
+          pip install sphinx myst-parser jupyter-sphinx sphinx-rtd-theme
+
+      - name: Build Sphinx documentation
+        run: |
+          conda activate gedai
+          cd docs
+          make html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: docs/_build/html
