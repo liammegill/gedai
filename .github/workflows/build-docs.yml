@@ -40,10 +40,14 @@ jobs:
           conda activate gedai
           cd docs
           make html
+  
+      - name: List built docs
+        run: ls -lh ./docs/build/html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: ./docs/_build/html
+          publish_dir: ./docs/build/html
+          force_orphan: true
