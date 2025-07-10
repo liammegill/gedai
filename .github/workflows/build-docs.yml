@@ -22,7 +22,7 @@ jobs:
         with:
           auto-update-conda: false
           activate-environment: gedai
-          environment-file: environment.yaml
+          environment-file: ./environment.yaml
           miniforge-version: latest
 
       - name: Verify environment
