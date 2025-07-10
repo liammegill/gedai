@@ -1,0 +1,324 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gedai.utils.legs &mdash; gedai 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/jupyter-sphinx.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/thebelab.css" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/thebelab-helper.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            gedai
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">gedai</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">gedai.utils.legs</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for gedai.utils.legs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Functions to identify and split by legs.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Liam Megill&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;liam.megill@dlr.de&quot;</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;Apache License 2.0&quot;</span>
+
+
+<span class="c1"># imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">overload</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">openap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">traffic.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flight</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">traffic.core.iterator</span><span class="w"> </span><span class="kn">import</span> <span class="n">flight_iterator</span>
+
+
+<div class="viewcode-block" id="split_by_leg">
+<a class="viewcode-back" href="../../../api_ref/gedai.utils.html#gedai.utils.legs.split_by_leg">[docs]</a>
+<span class="nd">@flight_iterator</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_by_leg</span><span class="p">(</span><span class="n">flight</span><span class="p">:</span> <span class="n">Flight</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;custom&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="s2">&quot;Flight&quot;</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split Flight by the leg number using the flight_iterator decorator.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        flight (Flight): Flight to be split</span>
+<span class="sd">        source (str): ADS-B source (e.g., &quot;adsb_exchange&quot;).</span>
+<span class="sd">            Defaults to &quot;custom&quot;.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        Flight: Flight split by the leg.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s2">&quot;phase&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">flight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">flight</span> <span class="o">=</span> <span class="n">flight</span><span class="o">.</span><span class="n">phases</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="s2">&quot;leg&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">flight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">flight</span> <span class="o">=</span> <span class="n">identify_legs</span><span class="p">(</span><span class="n">flight</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">leg_df</span> <span class="ow">in</span> <span class="n">flight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;leg&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">leg_df</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">Flight</span><span class="p">(</span><span class="n">leg_df</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="leg_split_condition">
+<a class="viewcode-back" href="../../../api_ref/gedai.utils.html#gedai.utils.legs.leg_split_condition">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">leg_split_condition</span><span class="p">(</span><span class="n">f1</span><span class="p">:</span> <span class="n">Flight</span><span class="p">,</span> <span class="n">f2</span><span class="p">:</span> <span class="n">Flight</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Condition for the .split() method of traffic&#39;s Flight object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f1 (Flight): Flight 1</span>
+<span class="sd">        f2 (Flight): Flight 2</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the column &quot;leg&quot; is not found.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: Where to split the data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">f1</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;leg&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">f2</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;leg&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing &#39;leg&#39; column in Flight data.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
+
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">identify_legs</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">soure</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">identify_legs</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Flight</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Flight</span><span class="p">:</span> <span class="o">...</span>
+
+
+<div class="viewcode-block" id="identify_legs">
+<a class="viewcode-back" href="../../../api_ref/gedai.utils.html#gedai.utils.legs.identify_legs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">identify_legs</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Flight</span><span class="p">],</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Flight</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Applies leg identification to the input DataFrame or Flight object,</span>
+<span class="sd">    modifying it in place. The function adds a new column &quot;leg&quot; with integers</span>
+<span class="sd">    denoting the corresponding leg.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        obj (Union[pd.DataFrame, Flight]): ADS-B data</span>
+<span class="sd">        source (str): ADS-B source (e.g., &quot;adsb_exchange&quot;).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[pd.DataFrame, Flight]: Same type as input, with added &#39;leg&#39; column.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If unknown source is provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">is_flight</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">is_flight</span> <span class="k">else</span> <span class="n">obj</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;adsb_exchange&quot;</span><span class="p">:</span>
+        <span class="c1"># use ADS-B Exchange&#39;s internal leg identification</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">_identify_legs_adsbexchange</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;custom&quot;</span><span class="p">:</span>
+        <span class="c1"># use custom requirements</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">_identify_legs_custom</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">_filter_short_legs</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>  <span class="c1"># filter out short legs</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;No leg detection logic implemented for source: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">leg</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;leg&quot;</span><span class="p">])</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_identify_legs_adsbexchange</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Identify legs using the &quot;flags&quot; data from ADS-B Exchange.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): DataFrame containing ADS-B data.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: DataFrame modified in place to contain new column &quot;leg&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s2">&quot;flags&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing column &#39;flags&#39; in DataFrame.&quot;</span><span class="p">)</span>
+    <span class="n">leg_flags</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;flags&quot;</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;leg&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">leg_flags</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_identify_legs_custom</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Identify legs using custom conditions:</span>
+<span class="sd">    1) Ground contact</span>
+<span class="sd">    2) Aircraft is between 0 and 10,000 ft and signal is lost for &gt; 5 min</span>
+<span class="sd">    3) Aircraft is above 10,000 ft and signal is lost for &gt; 10 h</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): DataFrame containing ADS-B data.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: DataFrame modified in place to contain new column &quot;leg&quot;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># pre-conditions</span>
+    <span class="n">req_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;altitude&quot;</span><span class="p">,</span> <span class="s2">&quot;phase&quot;</span><span class="p">]</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">req_cols</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing columns in DataFrame: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># shifted columns for previous state</span>
+    <span class="n">prev_alt</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">prev_phase</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;phase&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">delta_t</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># condition 1: ground contact</span>
+    <span class="n">cond_1</span> <span class="o">=</span> <span class="p">(</span><span class="n">prev_phase</span> <span class="o">!=</span> <span class="s2">&quot;GROUND&quot;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;phase&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;GROUND&quot;</span><span class="p">)</span>
+
+    <span class="c1"># condition 2: 0 &lt; alt &lt; 10 kft and &gt; 5 min</span>
+    <span class="n">low_alt1</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">10000</span><span class="p">)</span>
+    <span class="n">low_alt2</span> <span class="o">=</span> <span class="p">(</span><span class="n">prev_alt</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">prev_alt</span> <span class="o">&lt;</span> <span class="mi">10000</span><span class="p">)</span>
+    <span class="n">low_alt</span> <span class="o">=</span> <span class="n">low_alt1</span> <span class="o">|</span> <span class="n">low_alt2</span>
+    <span class="n">cond_2</span> <span class="o">=</span> <span class="n">low_alt</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">delta_t</span> <span class="o">&gt;</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+
+    <span class="c1"># condition 3: alt &gt;= 10 kft and &gt; 10 h</span>
+    <span class="n">high_alt</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">10000</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">prev_alt</span> <span class="o">&gt;=</span> <span class="mi">10000</span><span class="p">)</span>
+    <span class="n">cond_3</span> <span class="o">=</span> <span class="n">high_alt</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">delta_t</span> <span class="o">&gt;</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
+
+    <span class="c1"># combine conditions</span>
+    <span class="n">leg_breaks</span> <span class="o">=</span> <span class="n">cond_1</span> <span class="o">|</span> <span class="n">cond_2</span> <span class="o">|</span> <span class="n">cond_3</span>
+    <span class="n">leg_breaks</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># assign to df</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;leg&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">leg_breaks</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_filter_short_legs</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">min_duration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">min_dist</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply simple filter to remove short legs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): DataFrame containing ADS-B data.</span>
+<span class="sd">        min_duration_min (int, optional): Minimum leg duration [min].</span>
+<span class="sd">            Defaults to 5.</span>
+<span class="sd">        min_dist_km (float, optional): Minimum leg distance [km].</span>
+<span class="sd">            Defaults to 3.0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: DataFrame where short legs have been filtered out.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">keep_legs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">leg_df</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;leg&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">leg_df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># check leg duration</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">duration</span> <span class="o">&lt;</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">min_duration</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># check leg distance</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span>
+            <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">leg_df</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">dist</span> <span class="o">&lt;</span> <span class="n">min_dist</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">keep_legs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">leg_df</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">keep_legs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Liam Megill.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,327 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gedai.fuel &mdash; gedai 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/thebelab-helper.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            gedai
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gedai</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">gedai.fuel</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for gedai.fuel</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Functions to calculate fuel use.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">overload</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">openap</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_fuel_flow</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">fuelflow</span><span class="p">,</span>
+    <span class="n">m_start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">retry_with_mtow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">vectorised</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_fuel_flow</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="s2">&quot;Flight&quot;</span><span class="p">,</span>
+    <span class="n">fuelflow</span><span class="p">,</span>
+    <span class="n">m_start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">retry_with_mtow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">vectorised</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Flight&quot;</span><span class="p">:</span> <span class="o">...</span>
+
+
+<div class="viewcode-block" id="compute_fuel_flow">
+<a class="viewcode-back" href="../../api_ref/gedai.fuel.html#gedai.fuel.compute_fuel_flow">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_fuel_flow</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="s2">&quot;Flight&quot;</span><span class="p">],</span>
+    <span class="n">fuelflow</span><span class="p">:</span> <span class="n">openap</span><span class="o">.</span><span class="n">FuelFlow</span><span class="p">,</span>
+    <span class="n">m_start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">retry_with_mtow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">vectorised</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="s2">&quot;Flight&quot;</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate fuel flow based on phase, mass, and aircraft config.</span>
+
+<span class="sd">    Accepts either a pandas DataFrame or a Flight object. If given a Flight,</span>
+<span class="sd">    it returns a new Flight with added fuel-related columns. If given a</span>
+<span class="sd">    DataFrame, it returns a modified copy.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): Flight data.</span>
+<span class="sd">        fuelflow (openap.FuelFlow): Instance of the OpenAP FuelFlow class.</span>
+<span class="sd">        m_start (float): Initial mass of the aircraft [kg] or fraction of MTOW.</span>
+<span class="sd">        ac (dict): Aircraft configuration.</span>
+<span class="sd">        retry_with_mtow (bool, optional): Retry with MTOW if final mass</span>
+<span class="sd">            is below OEW. Defaults to True.</span>
+<span class="sd">        vectorised (bool, optional): Use a vectorised method (approximation,</span>
+<span class="sd">            but up to 100 times faster). Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[pd.DataFrame, Flight]: DataFrame with columns &quot;fuelflow&quot; [kg/s],</span>
+<span class="sd">            &quot;fuel&quot; [kg], and &quot;dt&quot; [s].</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If m_start is invalid or final mass is below OEW.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">is_flight</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>  <span class="c1"># check whether it is a flight instance</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">is_flight</span> <span class="k">else</span> <span class="n">obj</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">mtow</span> <span class="o">=</span> <span class="n">ac</span><span class="p">[</span><span class="s2">&quot;mtow&quot;</span><span class="p">]</span>
+    <span class="n">oew</span> <span class="o">=</span> <span class="n">ac</span><span class="p">[</span><span class="s2">&quot;oew&quot;</span><span class="p">]</span>
+
+    <span class="c1"># interpret m_start</span>
+    <span class="k">if</span> <span class="n">m_start</span> <span class="o">&gt;</span> <span class="n">mtow</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Initial mass may not be larger than MTOW.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">m_start</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Initial mass must be positive.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">m_start</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m_start</span> <span class="o">=</span> <span class="n">m_start</span> <span class="o">*</span> <span class="n">mtow</span>
+
+    <span class="c1"># select function to run</span>
+    <span class="n">ff_func</span> <span class="o">=</span> <span class="n">_fuel_flow_vectorised</span> <span class="k">if</span> <span class="n">vectorised</span> <span class="k">else</span> <span class="n">_fuel_flow_iterative</span>
+
+    <span class="c1"># calculate fuel flow, fuel and final mass</span>
+    <span class="n">ff</span><span class="p">,</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">mass</span> <span class="o">=</span> <span class="n">ff_func</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">fuelflow</span><span class="p">,</span> <span class="n">m_start</span><span class="p">)</span>
+
+    <span class="c1"># check if final mass is below OEW</span>
+    <span class="k">if</span> <span class="n">mass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">oew</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">retry_with_mtow</span><span class="p">:</span>
+            <span class="n">ff</span><span class="p">,</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">mass</span> <span class="o">=</span> <span class="n">ff_func</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">fuelflow</span><span class="p">,</span> <span class="n">mtow</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">oew</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Final mass </span><span class="si">{</span><span class="n">mass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kg is below OEW </span><span class="si">{</span><span class="n">oew</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kg &quot;</span>
+                    <span class="s2">&quot;even after retrying with MTOW.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Final mass </span><span class="si">{</span><span class="n">mass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kg is below OEW </span><span class="si">{</span><span class="n">oew</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kg.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">diff</span><span class="p">()</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span><span class="o">.</span><span class="n">bfill</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">fuelflow</span><span class="o">=</span><span class="n">ff</span><span class="p">,</span> <span class="n">fuel</span><span class="o">=</span><span class="n">fuel</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_fuel_flow_iterative</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">fuelflow</span><span class="p">:</span> <span class="n">openap</span><span class="o">.</span><span class="n">FuelFlow</span><span class="p">,</span> <span class="n">m_start</span><span class="p">:</span> <span class="nb">float</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Iterative fuel flow calculation, updating mass step by step.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): Flight data.</span>
+<span class="sd">        fuelflow (openap.FuelFlow): OpenAP fuel flow model.</span>
+<span class="sd">        m_start (float): Initial mass [kg]</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: fuel flow [kg/s], fuel used [kg], mass profile [kg]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">diff</span><span class="p">()</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span><span class="o">.</span><span class="n">bfill</span><span class="p">()</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">mass_current</span> <span class="o">=</span> <span class="n">m_start</span>
+    <span class="n">phase_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;GROUND&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">&quot;CLIMB&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">nominal</span><span class="p">,</span>
+        <span class="s2">&quot;DESCENT&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">idle</span><span class="p">,</span>
+        <span class="s2">&quot;LEVEL&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">enroute</span><span class="p">,</span>
+        <span class="s2">&quot;CRUISE&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">enroute</span><span class="p">,</span>
+        <span class="s2">&quot;NA&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">ff_lst</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">fuel_lst</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">mass_lst</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">step_dt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="n">dt</span><span class="p">):</span>
+        <span class="n">ff_method</span> <span class="o">=</span> <span class="n">phase_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">phase</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">step_dt</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">ff_method</span><span class="p">:</span>
+            <span class="n">ff</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ff</span> <span class="o">=</span> <span class="n">ff_method</span><span class="p">(</span>
+                <span class="n">mass</span><span class="o">=</span><span class="n">mass_current</span><span class="p">,</span>
+                <span class="n">tas</span><span class="o">=</span><span class="n">row</span><span class="o">.</span><span class="n">groundspeed</span><span class="p">,</span>
+                <span class="n">alt</span><span class="o">=</span><span class="n">row</span><span class="o">.</span><span class="n">altitude</span><span class="p">,</span>
+                <span class="n">vs</span><span class="o">=</span><span class="n">row</span><span class="o">.</span><span class="n">vertical_rate</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">ff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">posinf</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">neginf</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">fuel</span> <span class="o">=</span> <span class="n">ff</span> <span class="o">*</span> <span class="n">step_dt</span>
+        <span class="n">mass_current</span> <span class="o">-=</span> <span class="n">fuel</span>
+
+        <span class="n">ff_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ff</span><span class="p">)</span>
+        <span class="n">fuel_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fuel</span><span class="p">)</span>
+        <span class="n">mass_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mass_current</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ff_lst</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">fuel_lst</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mass_lst</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_fuel_flow_vectorised</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">fuelflow</span><span class="p">:</span> <span class="n">openap</span><span class="o">.</span><span class="n">FuelFlow</span><span class="p">,</span> <span class="n">m_init</span><span class="p">:</span> <span class="nb">float</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform two-pass fuel flow calculation with initial mass guess.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): Flight data.</span>
+<span class="sd">        fuelflow (openap.FuelFlow): OpenAP fuel flow model.</span>
+<span class="sd">        m_init (float): Initial aircraft mass [kg].</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: fuel flow [kg/s], fuel used [kg], final mass profile [kg]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+    <span class="n">mass_0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m_init</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">diff</span><span class="p">()</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span><span class="o">.</span><span class="n">bfill</span><span class="p">()</span>
+
+    <span class="n">phase_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;GROUND&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">&quot;CLIMB&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">nominal</span><span class="p">,</span>
+        <span class="s2">&quot;DESCENT&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">idle</span><span class="p">,</span>
+        <span class="s2">&quot;LEVEL&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">enroute</span><span class="p">,</span>
+        <span class="s2">&quot;CRUISE&quot;</span><span class="p">:</span> <span class="n">fuelflow</span><span class="o">.</span><span class="n">enroute</span><span class="p">,</span>
+        <span class="s2">&quot;NA&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">ff_1</span> <span class="o">=</span> <span class="n">_fuel_flow_vectorised_pass</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">phase_map</span><span class="p">,</span> <span class="n">mass_0</span><span class="p">)</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">mass_0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">ff_1</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+    <span class="n">ff_2</span> <span class="o">=</span> <span class="n">_fuel_flow_vectorised_pass</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">phase_map</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span>
+    <span class="n">fuel</span> <span class="o">=</span> <span class="n">ff_2</span> <span class="o">*</span> <span class="n">dt</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ff_2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">fuel</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_fuel_flow_vectorised_pass</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">phase_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">mass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Do a fuel flow calculation pass depending on the phase.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): Flight data.</span>
+<span class="sd">        phase_map (dict): Dictionary mapping phases to fuelflow methods.</span>
+<span class="sd">        mass (np.ndarray): mass [kg]</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: fuel flow [kg/s]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">phase</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">phase_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">p_idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;phase&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">phase</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">p_idx</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">ff</span><span class="p">[</span><span class="n">p_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span>
+            <span class="n">mass</span><span class="o">=</span><span class="n">mass</span><span class="p">[</span><span class="n">p_idx</span><span class="p">],</span>
+            <span class="n">tas</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;groundspeed&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">p_idx</span><span class="p">],</span>
+            <span class="n">alt</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">p_idx</span><span class="p">],</span>
+            <span class="n">vs</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;vertical_rate&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">p_idx</span><span class="p">],</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">ff</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Liam Megill.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

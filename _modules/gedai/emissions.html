@@ -1,0 +1,373 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gedai.emissions &mdash; gedai 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/thebelab-helper.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            gedai
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api_ref.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gedai</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">gedai.emissions</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for gedai.emissions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Functions to calculate emissions.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Liam Megill&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;liam.megill@dlr.de&quot;</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;Apache License 2.0&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">overload</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">openap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">traffic.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flight</span>
+
+
+<span class="c1"># emission indices</span>
+<span class="n">EI_CO2</span> <span class="o">=</span> <span class="mf">3.16</span>  <span class="c1"># Lee et al., 2010, Table 1, doi:10.1016/j.atmosenv.2009.06.005</span>
+<span class="n">EI_H2O</span> <span class="o">=</span> <span class="mf">1.24</span>  <span class="c1"># Lee et al., 2010, Table 1, doi:10.1016/j.atmosenv.2009.06.005</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_emissions</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">eng</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_emissions</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Flight</span><span class="p">,</span> <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">eng</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Flight</span><span class="p">:</span> <span class="o">...</span>
+
+
+<div class="viewcode-block" id="calc_emissions">
+<a class="viewcode-back" href="../../api_ref/gedai.emissions.html#gedai.emissions.calc_emissions">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_emissions</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Flight</span><span class="p">],</span> <span class="n">ac</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">eng</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Flight</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate emission flows [kg/s] of CO2, H2O and NOx.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        obj (Union[pd.DataFrame, Flight]): Flight data</span>
+<span class="sd">        ac (dict): OpenAP aircraft dictionary</span>
+<span class="sd">        eng (str, optional): Engine identifier, e.g. &quot;AE3007A1E&quot;. If None, use</span>
+<span class="sd">            default engine.</span>
+<span class="sd">        **kwargs: Additional parameters for NOx calculation, e.g. `nox_method`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[pd.DataFrame, Flight]: Input with new columns &quot;co2flow&quot;,</span>
+<span class="sd">        &quot;h2oflow&quot;, &quot;noxflow&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">is_flight</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">is_flight</span> <span class="k">else</span> <span class="n">obj</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># get aircraft and engine properties</span>
+    <span class="n">n_eng</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ac</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">][</span><span class="s2">&quot;number&quot;</span><span class="p">])</span>  <span class="c1"># ensure division works</span>
+    <span class="k">if</span> <span class="n">eng</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">eng</span> <span class="o">=</span> <span class="n">ac</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">][</span><span class="s2">&quot;default&quot;</span><span class="p">]</span>
+
+    <span class="c1"># calculate emissions</span>
+    <span class="n">co2flow</span> <span class="o">=</span> <span class="n">calc_co2</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;fuelflow&quot;</span><span class="p">])</span>
+    <span class="n">h2oflow</span> <span class="o">=</span> <span class="n">calc_h2o</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;fuelflow&quot;</span><span class="p">])</span>
+    <span class="n">noxflow</span> <span class="o">=</span> <span class="n">calc_nox</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;fuelflow&quot;</span><span class="p">],</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;groundspeed&quot;</span><span class="p">],</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;altitude&quot;</span><span class="p">],</span> <span class="n">eng</span><span class="p">,</span> <span class="n">n_eng</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">co2flow</span><span class="o">=</span><span class="n">co2flow</span><span class="p">,</span> <span class="n">h2oflow</span><span class="o">=</span><span class="n">h2oflow</span><span class="p">,</span> <span class="n">noxflow</span><span class="o">=</span><span class="n">noxflow</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="calc_co2">
+<a class="viewcode-back" href="../../api_ref/gedai.emissions.html#gedai.emissions.calc_co2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_co2</span><span class="p">(</span><span class="n">ff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate CO2 emission flow [kg/s].</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff (float | np.ndarray): Fuel flow [kg/s]</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float | np.ndarray: CO2 emission flow [kg/s]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ff</span> <span class="o">*</span> <span class="n">EI_CO2</span></div>
+
+
+
+<div class="viewcode-block" id="calc_h2o">
+<a class="viewcode-back" href="../../api_ref/gedai.emissions.html#gedai.emissions.calc_h2o">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_h2o</span><span class="p">(</span><span class="n">ff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate H2O emission flow [kg/s].</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff (float | np.ndarray): Fuel flow [kg/s]</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float | np.ndarray: H2O emission flow [kg/s]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ff</span> <span class="o">*</span> <span class="n">EI_H2O</span></div>
+
+
+
+<div class="viewcode-block" id="calc_nox">
+<a class="viewcode-back" href="../../api_ref/gedai.emissions.html#gedai.emissions.calc_nox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_nox</span><span class="p">(</span>
+    <span class="n">ff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">tas</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">alt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">eng</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_eng</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">nox_method</span><span class="o">=</span><span class="s2">&quot;dlr&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate NOx emissions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff (float | np.ndarray): Fuel flow [kg/s]</span>
+<span class="sd">        tas (float | np.ndarray): Airspeed [kt]</span>
+<span class="sd">        alt (float | np.ndarray): Altitude [ft]</span>
+<span class="sd">        eng (str): Engine identifier (e.g. &quot;AE3007A1E&quot;)</span>
+<span class="sd">        n_eng (int): Number of engines</span>
+<span class="sd">        nox_method (str, optional): NOx calculation method, one of &quot;dlr&quot; or</span>
+<span class="sd">            &quot;boeing&quot;. Defaults to &quot;dlr&quot;.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If unknown NOx method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float | np.ndarray: NOx emissions [kg/s]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># preconditions</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n_eng</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="n">n_eng</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_eng must be a positive number.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ff</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Fuel flow must be non-negative.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># get engine information</span>
+    <span class="n">engine</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">prop</span><span class="o">.</span><span class="n">engine</span><span class="p">(</span><span class="n">eng</span><span class="p">)</span>
+    <span class="n">ff_per_eng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span> <span class="n">n_eng</span><span class="p">)</span>
+
+    <span class="c1"># select NOx method</span>
+    <span class="k">if</span> <span class="n">nox_method</span> <span class="o">==</span> <span class="s2">&quot;dlr&quot;</span><span class="p">:</span>
+        <span class="n">einox</span> <span class="o">=</span> <span class="n">_dlr_method</span><span class="p">(</span><span class="n">ff_per_eng</span><span class="p">,</span> <span class="n">tas</span><span class="p">,</span> <span class="n">alt</span><span class="p">,</span> <span class="n">engine</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ff</span> <span class="o">*</span> <span class="n">einox</span>
+    <span class="k">if</span> <span class="n">nox_method</span> <span class="o">==</span> <span class="s2">&quot;boeing&quot;</span><span class="p">:</span>
+        <span class="n">einox</span> <span class="o">=</span> <span class="n">_boeing_method</span><span class="p">(</span><span class="n">ff_per_eng</span><span class="p">,</span> <span class="n">tas</span><span class="p">,</span> <span class="n">alt</span><span class="p">,</span> <span class="n">engine</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ff</span> <span class="o">*</span> <span class="n">einox</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown nox_method.&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dlr_method</span><span class="p">(</span>
+    <span class="n">ff_per_eng</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">tas</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">alt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">engine</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use the DLR Fuel Flow Method to calculate EINOx.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff_per_eng (float | np.ndarray): Fuel flow [kg/s] per engine.</span>
+<span class="sd">        tas (float | np.ndarray): Airpeed [kt]</span>
+<span class="sd">        alt (float | np.ndarray): Altitude [ft]</span>
+<span class="sd">        engine (dict): OpenAP engine object.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float | np.ndarray: EINOx [kg/kg]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># pressure and temperature</span>
+    <span class="n">mach</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">tas2mach</span><span class="p">(</span><span class="n">tas</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">kts</span><span class="p">,</span> <span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+    <span class="n">p_amb</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+    <span class="n">t_amb</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+
+    <span class="c1"># reference fuel flow</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">p_amb</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">mach</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">3.5</span> <span class="o">/</span> <span class="mf">101325.0</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">t_amb</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">mach</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mf">288.15</span>
+    <span class="n">w_ref</span> <span class="o">=</span> <span class="n">ff_per_eng</span> <span class="o">/</span> <span class="p">(</span><span class="n">delta</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span>
+
+    <span class="c1"># calculate EINOx in reference conditions using polynomial</span>
+    <span class="n">ff_lst</span> <span class="o">=</span> <span class="p">[</span><span class="n">engine</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;idl&quot;</span><span class="p">,</span> <span class="s2">&quot;app&quot;</span><span class="p">,</span> <span class="s2">&quot;co&quot;</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">]]</span>
+    <span class="n">einox_lst</span> <span class="o">=</span> <span class="p">[</span><span class="n">engine</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ei_nox_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;idl&quot;</span><span class="p">,</span> <span class="s2">&quot;app&quot;</span><span class="p">,</span> <span class="s2">&quot;co&quot;</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">]]</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">ff_lst</span><span class="p">,</span> <span class="n">einox_lst</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">einox_ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyval</span><span class="p">(</span><span class="n">coeffs</span><span class="p">,</span> <span class="n">w_ref</span><span class="p">)</span>
+
+    <span class="c1"># scale back to actual conditions</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="mf">1e-3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.0001426</span> <span class="o">*</span> <span class="p">(</span><span class="n">alt</span> <span class="o">-</span> <span class="mf">12900.0</span><span class="p">))</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="o">-</span><span class="mf">19.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">omega</span> <span class="o">-</span> <span class="mf">0.00634</span><span class="p">)</span>
+    <span class="n">einox</span> <span class="o">=</span> <span class="n">einox_ref</span> <span class="o">*</span> <span class="n">delta</span><span class="o">**</span><span class="mf">0.4</span> <span class="o">*</span> <span class="n">theta</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+
+    <span class="c1"># post-conditions</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">einox</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Negative EINOx value detected.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">einox</span> <span class="o">*</span> <span class="mf">1e-3</span>  <span class="c1"># convert to kg/kg</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_boeing_method</span><span class="p">(</span>
+    <span class="n">ff_per_eng</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">tas</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">alt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">engine</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use the Boeing Fuel Flow Method to calculate EINOx.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff_per_eng (float | np.ndarray): Fuel flow [kg/s] per engine.</span>
+<span class="sd">        tas (float | np.ndarray): Airpeed [kt]</span>
+<span class="sd">        alt (float | np.ndarray): Altitude [ft]</span>
+<span class="sd">        engine (dict): OpenAP engine object.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float | np.ndarray: EINOx [kg/kg]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># note that in the Boeing method, delta and theta are based on the ambient</span>
+    <span class="c1"># temperature and pressure, not the total</span>
+    <span class="n">mach</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">tas2mach</span><span class="p">(</span><span class="n">tas</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">kts</span><span class="p">,</span> <span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+    <span class="n">p_amb</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+    <span class="n">t_amb</span> <span class="o">=</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">temperature</span><span class="p">(</span><span class="n">alt</span> <span class="o">*</span> <span class="n">openap</span><span class="o">.</span><span class="n">aero</span><span class="o">.</span><span class="n">ft</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">p_amb</span> <span class="o">/</span> <span class="mf">101325.0</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">t_amb</span> <span class="o">/</span> <span class="mf">288.15</span>
+
+    <span class="c1"># calculate reference fuel flow</span>
+    <span class="n">w_ff</span> <span class="o">=</span> <span class="n">ff_per_eng</span> <span class="o">/</span> <span class="n">delta</span> <span class="o">*</span> <span class="n">theta</span><span class="o">**</span><span class="mf">3.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.2</span> <span class="o">*</span> <span class="n">mach</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># calculate EINOx in reference conditions using piecewise linear fits</span>
+    <span class="c1"># on log-log plots; correct for engine installation (r)</span>
+    <span class="n">log_ff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">engine</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">r</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;idl&quot;</span><span class="p">,</span> <span class="s2">&quot;app&quot;</span><span class="p">,</span> <span class="s2">&quot;co&quot;</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">],</span>
+                <span class="p">[</span><span class="mf">1.100</span><span class="p">,</span> <span class="mf">1.020</span><span class="p">,</span> <span class="mf">1.013</span><span class="p">,</span> <span class="mf">1.010</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">log_einox</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">engine</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ei_nox_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span> <span class="mf">1e-6</span><span class="p">)</span>  <span class="c1"># potential zeros for log</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;idl&quot;</span><span class="p">,</span> <span class="s2">&quot;app&quot;</span><span class="p">,</span> <span class="s2">&quot;co&quot;</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">log_einox_ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">w_ff</span><span class="p">),</span> <span class="n">log_ff</span><span class="p">,</span> <span class="n">log_einox</span><span class="p">)</span>
+    <span class="n">einox_ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">log_einox_ref</span><span class="p">)</span>
+
+    <span class="c1"># correct back to actual conditions</span>
+    <span class="c1"># assuming ISA, then phi becomes 0 and a lot cancels out</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="mf">373.16</span> <span class="o">/</span> <span class="n">t_amb</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mf">7.90298</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">tau</span><span class="p">)</span>
+        <span class="o">+</span> <span class="mf">3.00571</span>
+        <span class="o">+</span> <span class="mf">5.02808</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">tau</span><span class="p">)</span>
+        <span class="o">+</span> <span class="mf">1.3816e-7</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="mf">11.344</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">tau</span><span class="p">)))</span>
+        <span class="o">+</span> <span class="mf">8.1328e-3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="mf">3.49149</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">tau</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">p_v</span> <span class="o">=</span> <span class="mf">0.014504</span> <span class="o">*</span> <span class="mi">10</span><span class="o">**</span><span class="n">beta</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.62197058</span> <span class="o">*</span> <span class="n">phi</span> <span class="o">*</span> <span class="n">p_v</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_amb</span> <span class="o">-</span> <span class="n">phi</span> <span class="o">*</span> <span class="n">p_v</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="o">-</span><span class="mf">19.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">omega</span> <span class="o">-</span> <span class="mf">0.00634</span><span class="p">)</span>
+    <span class="n">einox</span> <span class="o">=</span> <span class="n">einox_ref</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">delta</span><span class="o">**</span><span class="mf">1.02</span> <span class="o">/</span> <span class="n">theta</span><span class="o">**</span><span class="mf">3.3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+
+    <span class="c1"># post-conditions</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">einox</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Negative EINOx value detected.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">einox</span> <span class="o">*</span> <span class="mf">1e-3</span>  <span class="c1"># convert to kg/kg</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Liam Megill.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
