@@ -33,7 +33,7 @@ jobs:
       - name: Install Sphinx and doc dependencies
         run: |
           conda activate gedai
-          pip install sphinx myst-parser jupyter-sphinx sphinx-rtd-theme
+          pip install sphinx myst-parser jupyter-sphinx sphinx-rtd-theme nbsphinx
 
       - name: Build Sphinx documentation
         run: |
