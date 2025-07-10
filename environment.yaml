@@ -15,3 +15,5 @@ dependencies:
   - pip:
       - -e .
       - git+https://github.com/junzis/openap.git
+      - sphinx_rtd_theme
+      - jupyter-sphinx

@@ -38,14 +38,6 @@ def assign_to_flight(
     Returns:
         A callable that accepts a Flight object and returns a new Flight
         with the updated data.
-
-    Example:
-        @assign_to_flight
-        def calculate_distance(df):
-            df["distance"] = ...
-            return df
-
-        new_flight = calculate_distance(flight)
     """
 
     @wraps(func)
